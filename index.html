@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Romantic Player — Glow Up</title>
+  <style>
+    :root{
+      --accent: #38b6ff;
+      --accent-rgb: 56,182,255;
+      --pink: #ff83c0;
+      --pink-rgb: 255,131,192;
+      --pulse-rgb: 56,182,255;
+
+      --card-bg: rgba(255,255,255,0.06);
+      --glass-border: rgba(255,255,255,0.12);
+      --text: rgba(255,255,255,0.95);
+      --muted: rgba(255,255,255,0.7);
+    }
+
+    /* Romantic theme variables (enabled when body.romantic) */
+    body.romantic {
+      --accent: #ff6fb6;
+      --accent-rgb: 255,111,182;
+      --pulse-rgb: var(--pink-rgb);
+      --card-bg: rgba(255,240,245,0.06);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--text);
+      background:linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.65));
+      display:flex;align-items:center;justify-content:center;
+      padding:32px;overflow:auto;min-height:100vh;
+    }
+
+    /* background photo (blurred) */
+    .bg-photo{
+      position:fixed;inset:0;
+      background:url('Music Player.png') center/cover no-repeat;
+      filter:blur(14px) saturate(90%);
+      transform:scale(1.02);
+      z-index:-3;
+    }
+    .bg-photo::after{
+      content:"";position:absolute;inset:0;
+      background:linear-gradient(180deg, rgba(10,10,10,0.25), rgba(8,8,20,0.5));
+      mix-blend-mode: multiply;
+    }
+    /* romantic overlay tint when glow is active */
+    body.romantic .bg-photo::after{
+      background: linear-gradient(180deg, rgba(255,160,200,0.18), rgba(255,120,180,0.26));
+    }
+
+    .player-wrap{z-index:2;width:100%;max-width:420px}
+    .player-card{
+      border-radius:20px;padding:18px;
+      background:var(--card-bg);
+      border:1px solid var(--glass-border);
+      box-shadow:
+        0 6px 20px rgba(0,0,0,0.5),
+        0 8px 40px rgba(var(--accent-rgb),0.06);
+      backdrop-filter:blur(10px) saturate(120%);
+      transition:box-shadow .35s,transform .25s;
+    }
+    .player-card:hover{
+      box-shadow:
+        0 20px 50px rgba(0,0,0,0.6),
+        0 14px 60px rgba(var(--accent-rgb),0.12),
+        0 0 60px rgba(var(--accent-rgb),0.06);
+      transform:translateY(-6px);
+    }
+
+    .art{position:relative;border-radius:14px;overflow:hidden;height:300px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 10px 30px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.02)}
+    .art img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.2,.9,.2,1)}
+    .player-card:hover .art img{transform:scale(1.06) rotate(-0.2deg)}
+    .art-overlay{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.35));mix-blend-mode:multiply}
+
+    .meta{text-align:center;margin-bottom:8px}
+    .meta h2{margin:4px 0 0;font-size:20px}
+    .meta p{margin:0;color:var(--muted);font-size:14px}
+
+    .progress-row{display:flex;align-items:center;gap:12px;margin:8px 0 12px}
+    .time{font-size:12px;color:var(--muted);width:40px;text-align:center}
+    .progress-container{flex:1;height:10px;background:linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));border-radius:999px;position:relative;cursor:pointer;overflow:hidden}
+    .progress-filled{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,var(--pink),var(--accent));box-shadow:0 6px 18px rgba(var(--accent-rgb),0.12)}
+
+    .controls{display:flex;gap:20px;justify-content:center;align-items:center;margin-bottom:14px}
+    .btn{border:0;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02));color:var(--text);padding:10px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform .16s,box-shadow .16s;box-shadow:0 8px 18px rgba(0,0,0,0.45),0 4px 18px rgba(var(--accent-rgb),0.03)}
+    .btn svg{width:22px;height:22px;fill:currentColor}
+    .btn:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(0,0,0,0.55),0 10px 40px rgba(var(--accent-rgb),0.14)}
+
+    .btn.active{ box-shadow: 0 14px 40px rgba(var(--accent-rgb),0.18); }
+
+    .circle{border-radius:50%}
+    .big{width:84px;height:84px;padding:0;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.08));position:relative}
+    .big svg{width:34px;height:34px}
+    .big::after{
+      content:"";position:absolute;inset:-6px;border-radius:999px;background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.02), transparent 20%);
+      transition:box-shadow .2s;
+    }
+    .big:hover::after{box-shadow:0 0 40px rgba(var(--accent-rgb),0.18)}
+
+    /* pulsing heart while playing - uses --pulse-rgb, changes in romantic mode */
+    .big.playing::after{
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse{
+      0%{ box-shadow: 0 0 0 0 rgba(var(--pulse-rgb),0.18); }
+      50%{ box-shadow: 0 0 40px 8px rgba(var(--pulse-rgb),0.06); }
+      100%{ box-shadow: 0 0 0 40px rgba(var(--pulse-rgb),0.00); }
+    }
+
+    .extras{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+    .btn.small{width:44px;height:44px;padding:8px;border-radius:10px}
+    .volume input[type=range]{width:120px;accent-color:var(--accent)}
+
+    .playlist{margin-top:6px;display:flex;flex-direction:column;gap:8px;max-height:160px;overflow:auto;padding-right:6px}
+    .playlist .item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);cursor:pointer;transition:transform .12s,box-shadow .12s}
+    .playlist .item:hover{transform:translateX(6px);box-shadow:0 10px 30px rgba(0,0,0,0.5),0 8px 40px rgba(var(--accent-rgb),0.06)}
+    .playlist .thumb{width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;background:url('Music Player.png') center/cover no-repeat}
+    .playlist .text{flex:1;min-width:0}
+    .playlist .text h4{margin:0;font-size:14px}
+    .playlist .text p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+    .playlist .playing{outline:2px solid rgba(var(--accent-rgb),0.12);box-shadow:0 10px 30px rgba(var(--accent-rgb),0.08)}
+
+    /* glow-up button active styling */
+    .btn.glow-active { box-shadow: 0 14px 40px rgba(var(--pink-rgb),0.22); transform: translateY(-4px) scale(1.03); }
+
+    /* hearts overlay */
+    #heartsOverlay{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:999;
+      overflow:hidden;
+      display:none;
+    }
+    #heartsOverlay.active{ display:block; }
+
+    .heart{
+      position:absolute;
+      bottom:-8vh;
+      will-change: transform, opacity;
+      font-size:20px;
+      color: rgb(var(--pulse-rgb));
+      text-shadow: 0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(255,255,255,0.02);
+      transform-origin:center;
+      user-select:none;
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,0.22));
+      opacity:0.98;
+    }
+
+    @keyframes floatUp {
+      0% { transform: translateY(0) rotate(0) scale(0.85); opacity:1; }
+      100% { transform: translateY(-120vh) rotate(360deg) scale(1.05); opacity:0; }
+    }
+
+    /* accessibility helper */
+    .visually-hidden{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; border:0; padding:0; margin:-1px; }
+
+    @media(max-width:420px){
+      .art{height:260px}
+      .big{width:72px;height:72px}
+      .volume input[type=range]{width:95px}
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-photo" aria-hidden="true"></div>
+
+  <main class="player-wrap" role="application" aria-label="Romantic music player">
+    <div class="player-card">
+      <div class="art">
+        <img src="Music Player.png" alt="Cover art" />
+        <div class="art-overlay"></div>
+      </div>
+
+      <div class="meta">
+        <h2 id="title">—</h2>
+        <p id="artist">—</p>
+      </div>
+
+      <div class="progress-row">
+        <div id="currentTime" class="time">0:00</div>
+        <div id="progressContainer" class="progress-container" aria-label="seek bar" role="slider" tabindex="0">
+          <div id="progress" class="progress-filled"></div>
+        </div>
+        <div id="duration" class="time">0:00</div>
+      </div>
+
+      <div class="controls">
+        <button id="prev" class="btn circle" title="Previous (P)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6v12l8.5-6L6 6zM18 6v12h-2V6h2z"/></svg>
+        </button>
+
+        <button id="play" class="btn big circle" aria-label="Play">
+          <svg id="playIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="pauseIcon" viewBox="0 0 24 24" aria-hidden="true" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+
+        <button id="next" class="btn circle" title="Next (N)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6v12l-8.5-6L16 6zM20 6v12h-2V6h2z"/></svg>
+        </button>
+      </div>
+
+      <div class="extras">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="shuffle" class="btn small" title="Shuffle" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5h-2V6.41l-7.59 7.59-1.41-1.41L17.59 5H16V3zM3 6h2.17l5.83 5.83-1.41 1.41L3 7.41V9H1V4h5v2zM13 13l2 2 4-4v3h2V9h-6v2z"/></svg>
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label class="volume" style="display:flex;align-items:center;gap:6px;">
+            <input id="volume" type="range" min="0" max="1" step="0.01" value="0.9" />
+            <span class="visually-hidden">Volume</span>
+          </label>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="repeat" class="btn small" title="Repeat (toggle)" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H6a2 2 0 0 0-2 2v4h2V7zM17 17H7v-3l-4 4 4 4v-3h11a2 2 0 0 0 2-2v-4h-2v4z"/></svg>
+          </button>
+
+          <!-- GLOW-UP button: toggles romantic theme + hearts -->
+          <button id="glowBtn" class="btn small" title="Glow Up — romantic theme" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 21s-7-4.35-9-7.07C0.91 11.57 2.79 6 6.5 4.5 8.12 3.8 10 4.27 12 6c2-1.73 3.88-2.2 5.5-1.5 3.71 1.5 5.59 7.07 3.5 9.43C19 16.65 12 21 12 21z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="playlist" id="playlist" aria-label="playlist"></div>
+    </div>
+  </main>
+
+  <!-- invisible audio element -->
+  <audio id="audio" preload="metadata"></audio>
+
+  <!-- hearts overlay (will be appended by JS) -->
+  <div id="heartsOverlay" aria-hidden="true"></div>
+
+  <script>
+    /* ============================
+       SONG LIST - rename files if you want
+       Put your 5 mp3s in songs/ and match these filenames
+       ============================ */
+    const songs = [
+      { file: 'songs/01_Love_of_My_Life.mp3', title: 'Love of My Life', artist: 'For You' },
+      { file: 'songs/02_Evergreen.mp3', title: 'Evergreen', artist: 'For You' },
+      { file: 'songs/03_Moonlight_Serenade.mp3', title: 'Moonlight Serenade', artist: 'For You' },
+      { file: 'songs/04_You_and_I.mp3', title: 'You & I', artist: 'For You' },
+      { file: 'songs/05_Forever_With_You.mp3', title: 'Forever With You', artist: 'For You' }
+    ];
+
+    /* ============================
+       DOM elements
+       ============================ */
+    const audio = document.getElementById('audio');
+    const playBtn = document.getElementById('play');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
+    const shuffleBtn = document.getElementById('shuffle');
+    const repeatBtn = document.getElementById('repeat');
+    const progressContainer = document.getElementById('progressContainer');
+    const progress = document.getElementById('progress');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+    const titleEl = document.getElementById('title');
+    const artistEl = document.getElementById('artist');
+    const playlistEl = document.getElementById('playlist');
+    const volumeEl = document.getElementById('volume');
+    const glowBtn = document.getElementById('glowBtn');
+    const heartsOverlay = document.getElementById('heartsOverlay');
+
+    /* ============================
+       State
+       ============================ */
+    let currentIndex = 0;
+    let isPlaying = false;
+    let isShuffle = false;
+    let isRepeat = false;
+    let isGlow = false;
+    let progressRaf = null;
+    let glowInterval = null;
+
+    /* ============================
+       Build playlist UI
+       ============================ */
+    function buildPlaylist() {
+      playlistEl.innerHTML = '';
+      songs.forEach((s, i) => {
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.dataset.index = i;
+        item.innerHTML = `
+          <div class="thumb" aria-hidden="true"></div>
+          <div class="text">
+            <h4>${escapeHtml(s.title)}</h4>
+            <p>${escapeHtml(s.artist)}</p>
+          </div>
+        `;
+        item.addEventListener('click', () => {
+          loadSong(i);
+          playSong();
+        });
+        playlistEl.appendChild(item);
+      });
+    }
+
+    function escapeHtml(unsafe) {
+      return String(unsafe).replace(/[&<"']/g, (m) => ({'&':'&amp;','<':'&lt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    /* ============================
+       Load / Play / Pause / Nav
+       ============================ */
+    function loadSong(index) {
+      if (index < 0) index = 0;
+      if (index >= songs.length) index = songs.length - 1;
+      currentIndex = index;
+      const s = songs[currentIndex];
+      audio.src = s.file;
+      audio.load();
+
+      titleEl.textContent = s.title;
+      artistEl.textContent = s.artist;
+
+      // highlight playlist
+      Array.from(playlistEl.children).forEach((el) => el.classList.toggle('playing', +el.dataset.index === currentIndex));
+    }
+
+    function playSong() {
+      audio.play().then(() => {
+        isPlaying = true;
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'block';
+        playBtn.setAttribute('aria-label', 'Pause');
+        playBtn.classList.add('playing');
+        animateProgress();
+      }).catch((e) => {
+        // autoplay may be blocked; nothing fatal
+        console.warn('Playback prevented or error:', e);
+      });
+    }
+
+    function pauseSong() {
+      audio.pause();
+      isPlaying = false;
+      playIcon.style.display = 'block';
+      pauseIcon.style.display = 'none';
+      playBtn.setAttribute('aria-label', 'Play');
+      playBtn.classList.remove('playing');
+      cancelAnimationFrame(progressRaf);
+    }
+
+    function prevSong() {
+      if (audio.currentTime > 3) {
+        audio.currentTime = 0;
+        return;
+      }
+      currentIndex = (currentIndex - 1 + songs.length) % songs.length;
+      loadSong(currentIndex);
+      playSong();
+    }
+
+    function nextSong() {
+      if (isShuffle) {
+        let next = currentIndex;
+        if (songs.length > 1) {
+          while (next === currentIndex) {
+            next = Math.floor(Math.random() * songs.length);
+          }
+        }
+        currentIndex = next;
+      } else {
+        currentIndex = (currentIndex + 1) % songs.length;
+      }
+      loadSong(currentIndex);
+      playSong();
+    }
+
+    /* ============================
+       Shuffle / Repeat UI toggles
+       ============================ */
+    shuffleBtn.addEventListener('click', () => {
+      isShuffle = !isShuffle;
+      shuffleBtn.classList.toggle('active', isShuffle);
+      shuffleBtn.setAttribute('aria-pressed', String(isShuffle));
+    });
+
+    repeatBtn.addEventListener('click', () => {
+      isRepeat = !isRepeat;
+      repeatBtn.classList.toggle('active', isRepeat);
+      repeatBtn.setAttribute('aria-pressed', String(isRepeat));
+    });
+
+    /* ============================
+       Progress / Seek
+       ============================ */
+    function formatTime(sec) {
+      if (!sec || isNaN(sec)) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function animateProgress() {
+      function update() {
+        if (audio.duration) {
+          const percent = (audio.currentTime / audio.duration) * 100;
+          progress.style.width = percent + '%';
+          currentTimeEl.textContent = formatTime(audio.currentTime);
+        }
+        progressRaf = requestAnimationFrame(update);
+      }
+      cancelAnimationFrame(progressRaf);
+      progressRaf = requestAnimationFrame(update);
+    }
+
+    progressContainer.addEventListener('click', (e) => {
+      const rect = progressContainer.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if (audio.duration) audio.currentTime = pct * audio.duration;
+    });
+
+    progressContainer.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') audio.currentTime = Math.max(0, audio.currentTime - 5);
+      if (e.key === 'ArrowRight' && audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+    });
+
+    /* ============================
+       Volume
+       ============================ */
+    volumeEl.addEventListener('input', (e) => {
+      audio.volume = parseFloat(e.target.value);
+    });
+
+    /* ============================
+       Main controls
+       ============================ */
+    playBtn.addEventListener('click', () => {
+      if (isPlaying) pauseSong(); else playSong();
+    });
+    prevBtn.addEventListener('click', prevSong);
+    nextBtn.addEventListener('click', nextSong);
+
+    /* keyboard shortcuts */
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        if (isPlaying) pauseSong(); else playSong();
+      } else if (e.key.toLowerCase() === 'n') nextSong();
+      else if (e.key.toLowerCase() === 'p') prevSong();
+      else if (e.key.toLowerCase() === 'g') toggleGlow(); // quick toggle
+    });
+
+    /* audio events */
+    audio.addEventListener('loadedmetadata', () => {
+      durationEl.textContent = formatTime(audio.duration);
+    });
+    audio.addEventListener('timeupdate', () => {
+      if (!progressRaf) animateProgress();
+    });
+    audio.addEventListener('ended', () => {
+      if (isRepeat) {
+        audio.currentTime = 0;
+        playSong();
+      } else {
+        nextSong();
+      }
+    });
+
+    /* ============================
+       Glow Up: hearts + romantic theme
+       ============================ */
+    function spawnHeart() {
+      // safety cap
+      if (!heartsOverlay) return;
+      const max = 36;
+      if (heartsOverlay.children.length > max) return;
+
+      const h = document.createElement('div');
+      h.className = 'heart';
+      h.innerHTML = '❤'; // unicode heart
+      // random horizontal position (slightly outside to give variety)
+      const left = (Math.random() * 120) - 10; // -10vw .. 110vw
+      h.style.left = left + 'vw';
+
+      // random size & speed
+      const size = 12 + Math.random() * 36; // px
+      h.style.fontSize = size + 'px';
+      const duration = 6 + Math.random() * 7; // seconds
+      const delay = Math.random() * 0.6; // small start delay
+      h.style.animation = `floatUp ${duration}s linear ${delay}s forwards`;
+      h.style.opacity = String(0.85 + Math.random() * 0.15);
+
+      heartsOverlay.appendChild(h);
+      // remove when done
+      h.addEventListener('animationend', () => {
+        h.remove();
+      });
+      // safety remove after long timeout
+      setTimeout(()=> h.remove(), (duration + delay) * 1000 + 500);
+    }
+
+    function toggleGlow() {
+      isGlow = !isGlow;
+      document.body.classList.toggle('romantic', isGlow);
+      glowBtn.classList.toggle('glow-active', isGlow);
+      glowBtn.setAttribute('aria-pressed', String(isGlow));
+      if (isGlow) {
+        heartsOverlay.classList.add('active');
+        heartsOverlay.style.display = 'block';
+        // spawn an initial bouquet then interval
+        for (let i=0;i<6;i++){ setTimeout(spawnHeart, i*120); }
+        glowInterval = setInterval(spawnHeart, 600);
+      } else {
+        // stop spawning
+        clearInterval(glowInterval);
+        // gently remove existing hearts (let them fade by forcing short animation)
+        const hearts = Array.from(heartsOverlay.querySelectorAll('.heart'));
+        hearts.forEach((h, idx) => {
+          // make them fade quicker
+          h.style.animationPlayState = 'running';
+          h.style.transition = 'opacity .8s ease';
+          h.style.opacity = '0';
+          setTimeout(()=> h.remove(), 900 + idx * 30);
+        });
+        // remove overlay after a moment
+        setTimeout(()=> {
+          heartsOverlay.classList.remove('active');
+          heartsOverlay.style.display = 'none';
+        }, 1000);
+      }
+    }
+
+    glowBtn.addEventListener('click', toggleGlow);
+
+    /* ============================
+       Initialize
+       ============================ */
+    buildPlaylist();
+    loadSong(0);
+    audio.volume = parseFloat(volumeEl.value);
+
+    // small accessibility helper: show focus outlines if user tabs
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'Tab') document.body.classList.add('show-focus');
+    });
+  </script>
+</body>
+</html>
